@@ -117,6 +117,18 @@ def test_get_task_by_id(client):
 # EXERCICE 1 : Écrire un test pour SUPPRIMER une tâche
 # Pattern : Créer → Supprimer → Vérifier qu'elle a disparu
 def test_delete_task(client):
+    # ARRANGE : créer une tâche à supprimer
+    create_resp = client.post("/tasks", json={"title": "À supprimer"})
+    assert create_resp.status_code == 201
+    task_id = create_resp.json()["id"]
+
+    # ACT : supprimer la tâche
+    delete_resp = client.delete(f"/tasks/{task_id}")
+    assert delete_resp.status_code == 204  # No Content
+
+    # ASSERT : la tâche ne doit plus exister
+    get_resp = client.get(f"/tasks/{task_id}")
+    assert get_resp.status_code == 404
     """
     VOTRE TÂCHE : Écrire un test qui supprime une tâche.
 
@@ -167,6 +179,18 @@ def test_create_task_empty_title(client):
     pass
 
 
+def test_delete_nonexistent_task_returns_404(client):
+    """Deleting a task that doesn't exist should return 404."""
+    # 1. Essayer de supprimer une tâche avec un ID inexistant
+    response = client.delete("/tasks/9999")
+
+    # 2. Vérifier que ça retourne 404
+    assert response.status_code == 404
+
+    # 3. Vérifier que le message d’erreur contient "not found"
+    data = response.json()
+    assert "not found" in data["detail"].lower()
+
 # EXERCICE 4 : Tester la validation - priorité invalide
 def test_update_task_with_invalid_priority(client):
     """
@@ -180,7 +204,17 @@ def test_update_task_with_invalid_priority(client):
     Rappel : Les priorités valides sont "low", "medium", "high" (voir TaskPriority dans app.py)
     """
     # TODO : Écrivez votre test ici !
-    pass
+    """Updating a task with an invalid priority should fail."""
+    # 1. Créer une tâche valide
+    create_resp = client.post("/tasks", json={"title": "Tâche prioritaire"})
+    assert create_resp.status_code == 201
+    task_id = create_resp.json()["id"]
+
+    # 2. Essayer de la mettre à jour avec une priorité invalide
+    response = client.put(f"/tasks/{task_id}", json={"priority": "urgent"})
+
+    # 3. Vérifier que ça retourne 422 (Erreur de validation)
+    assert response.status_code == 422
 
 
 # EXERCICE 5 : Tester l'erreur 404
@@ -195,6 +229,24 @@ def test_get_nonexistent_task(client):
     # TODO : Écrivez votre test ici !
     pass
 
+def test_filter_by_multiple_criteria(client):
+    """Filtering by status AND priority should work."""
+    # 1) Créer 3 tâches avec différents status/priority
+    t1 = client.post("/tasks", json={"title": "A", "status": "todo", "priority": "high"})
+    t2 = client.post("/tasks", json={"title": "B", "status": "todo", "priority": "low"})
+    t3 = client.post("/tasks", json={"title": "C", "status": "done", "priority": "high"})
+    assert t1.status_code == 201 and t2.status_code == 201 and t3.status_code == 201
+
+    # 2) Filtrer: status=todo & priority=high
+    resp = client.get("/tasks", params={"status": "todo", "priority": "high"})
+    assert resp.status_code == 200
+
+    # 3) On ne reçoit que la/les bonnes tâches
+    tasks = resp.json()
+    assert len(tasks) == 1
+    assert tasks[0]["status"] == "todo"
+    assert tasks[0]["priority"] == "high"
+    assert tasks[0]["title"] == "A"
 
 # =============================================================================
 # EXERCICES BONUS (Si vous finissez en avance !)

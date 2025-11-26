@@ -207,6 +207,30 @@ async def create_task(task_data: TaskCreate) -> Task:
 @app.put("/tasks/{task_id}", response_model=Task)
 async def update_task(task_id: int, updates: TaskUpdate) -> Task:
     """
+    Mettre à jour partiellement une tâche existante.
+    - 404 si la tâche n'existe pas
+    - Seuls les champs fournis sont mis à jour
+    """
+    # 1) existence
+    if task_id not in tasks_db:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    # 2) récupérer l'existant
+    existing_task = tasks_db[task_id]
+
+    # 3) extraire uniquement les champs fournis dans la requête
+    update_data = updates.model_dump(exclude_unset=True)
+
+    # 4) appliquer les modifications champ par champ
+    for field, value in update_data.items():
+        setattr(existing_task, field, value)
+
+    # 5) sauvegarder la version mise à jour
+    tasks_db[task_id] = existing_task
+
+    # 6) retourner la ressource mise à jour (200 OK)
+    return existing_task
+    """
     Update an existing task (partial update supported).
 
     TODO (Atelier 1 - Exercice 2): Implémenter cette fonction
@@ -234,7 +258,9 @@ async def update_task(task_id: int, updates: TaskUpdate) -> Task:
     Indice: Regardez comment create_task fonctionne pour vous inspirer
     """
     # TODO: Votre code ici
-    raise HTTPException(status_code=501, detail="Update not implemented yet - complete this function!")
+
+
+    #raise HTTPException(status_code=501, detail="Update not implemented yet - complete this function!")
 
 
 @app.delete("/tasks/{task_id}", status_code=204)
